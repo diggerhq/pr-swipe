@@ -27,6 +27,7 @@ const reportOutput = {
           updatedAt: { type: "string" },
           headRefName: { type: "string" },
           baseRefName: { type: "string" },
+          headSha: { type: "string" },
         },
       },
     },
@@ -37,6 +38,23 @@ const reportOutput = {
       properties: {
         pr: { type: "integer" },
         headSha: { type: "string" },
+        // The card's front, so the app can show a reviewed PR before it re-lists the repo.
+        meta: {
+          type: "object",
+          required: ["title", "author"],
+          additionalProperties: false,
+          properties: {
+            title: { type: "string", maxLength: 140 },
+            author: { type: "string" },
+            additions: { type: "integer" },
+            deletions: { type: "integer" },
+            changedFiles: { type: "integer" },
+            draft: { type: "boolean" },
+            updatedAt: { type: "string" },
+            headRefName: { type: "string" },
+            baseRefName: { type: "string" },
+          },
+        },
         verdict: { type: "string", enum: ["merge", "needs_work", "close"] },
         confidence: { type: "string", enum: ["high", "medium", "low"] },
         risk: { type: "string", enum: ["low", "medium", "high"] },

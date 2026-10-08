@@ -3,7 +3,6 @@ import { demoApi } from "./demo.js";
 const DEMO = new URLSearchParams(location.search).has("demo");
 const UNDO_MS = 5000;
 const MAX_PARALLEL_REVIEWS = 3;
-const PREFETCH = 3;
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -29,7 +28,7 @@ const liveApi = {
   repos: () => call("GET", "/api/repos"),
   listPrs: (repo) => call("POST", "/api/prs", { repo }),
   reviews: (repo) => call("GET", `/api/reviews?repo=${encodeURIComponent(repo)}`),
-  startReview: (repo, pr) => call("POST", "/api/reviews", { repo, pr }),
+  startReview: (repo, pr, sha, force) => call("POST", "/api/reviews", { repo, pr, sha, force }),
   act: (body) => call("POST", "/api/actions", body),
   job: (id, after) => call("GET", `/api/jobs/${id}?after=${after}`),
 };
@@ -41,6 +40,8 @@ const state = {
   queue: [], // PR objects still to decide on, front = top card
   reviews: {}, // pr number -> { jobId, cursor, status: running|done|failed, result, log[] }
   pending: null, // swipe waiting out its undo window
+  decided: new Set(), // PRs merged or closed this visit
+  listing: false,
 };
 
 // ---------- Screens ----------
@@ -152,23 +153,36 @@ async function openRepo(repo) {
   state.repo = repo;
   state.queue = [];
   state.reviews = {};
+  state.decided = new Set();
   store.set(`pr-swipe:repo${DEMO ? ":demo" : ""}`, repo);
   $("#repo-button").textContent = `${repo} ▾`;
   show("deck");
-  renderDeck({ loading: "Finding open pull requests…", log: [] });
+  renderDeck({ loading: "Loading reviews…", log: [] });
 
+  // 1. Reviews the background sweep already finished: show them right away.
   let listJob;
+  const listing = api.listPrs(repo); // starts now; awaited after the cached deck is up
+  listing.catch(() => {});
   try {
-    const [{ jobId }, existing] = await Promise.all([api.listPrs(repo), api.reviews(repo)]);
-    listJob = jobId;
+    const existing = await api.reviews(repo);
+    if (state.repo !== repo) return;
+    const cached = [];
     for (const [pr, r] of Object.entries(existing.reviews)) {
-      state.reviews[pr] = { jobId: r.jobId, cursor: 0, status: r.result ? "done" : "running", result: r.result, log: [] };
+      state.reviews[pr] = { jobId: r.jobId, cursor: 0, status: r.state === "done" ? "done" : "running", result: r.result, sha: r.sha, log: [] };
+      const review = r.result?.review;
+      if (review?.meta) cached.push({ number: Number(pr), ...review.meta, headSha: review.headSha });
     }
+    if (cached.length) {
+      state.queue = cached.sort((a, b) => b.number - a.number);
+      setListing(true);
+      renderDeck();
+    }
+    listJob = (await listing).jobId;
   } catch (err) {
     return renderDeck({ error: err.message });
   }
 
-  // Wait for the PR list.
+  // 2. The live list: drop merged/closed PRs, add new ones, re-review new commits.
   const log = [];
   let cursor = 0;
   for (;;) {
@@ -176,24 +190,50 @@ async function openRepo(repo) {
     try {
       job = await api.job(listJob, cursor);
     } catch (err) {
-      return renderDeck({ error: err.message });
+      if (!state.queue.length) return renderDeck({ error: err.message });
+      return setListing(false);
     }
+    if (state.repo !== repo) return;
     cursor = job.cursor;
     log.push(...job.events);
     if (job.result?.kind === "prs") {
-      state.queue = job.result.prs;
+      reconcile(job.result.prs);
       break;
     }
-    if (job.turnStatus === "failed" || job.turnStatus === "cancelled") {
+    if (job.turnStatus === "failed" || job.turnStatus === "cancelled" || (job.turnStatus === "completed" && !job.result)) {
       const last = log.filter((l) => l.kind === "error").pop();
-      return renderDeck({ error: `Couldn't list pull requests. ${last?.text ?? ""}` });
+      if (!state.queue.length) return renderDeck({ error: `Couldn't list pull requests. ${last?.text ?? ""}` });
+      break;
     }
-    if (state.repo !== repo) return;
-    renderDeck({ loading: "Finding open pull requests…", log });
+    if (!state.queue.length) renderDeck({ loading: "Finding open pull requests…", log });
     await sleep(1500);
   }
+  setListing(false);
   renderDeck();
   pump();
+}
+
+function reconcile(prs) {
+  const open = prs.filter((pr) => !state.decided.has(pr.number));
+  // Keep the card the person is looking at on top if it is still open.
+  const top = state.queue[0];
+  const ordered = top && open.some((p) => p.number === top.number)
+    ? [open.find((p) => p.number === top.number), ...open.filter((p) => p.number !== top.number)]
+    : open;
+  state.queue = ordered;
+  for (const pr of open) {
+    const rv = state.reviews[pr.number];
+    if (!rv || !pr.headSha) continue;
+    const reviewedSha = rv.result?.review?.headSha ?? rv.sha;
+    if (reviewedSha && !pr.headSha.startsWith(reviewedSha) && !reviewedSha.startsWith(pr.headSha)) {
+      delete state.reviews[pr.number]; // new commits since that review
+    }
+  }
+}
+
+function setListing(on) {
+  state.listing = on;
+  $("#deck-status").textContent = on ? "Checking GitHub for new pull requests and commits…" : "";
 }
 
 function renderDeck(status) {
@@ -210,6 +250,7 @@ function renderDeck(status) {
   const visible = state.queue.slice(0, 3);
   for (const c of controls) c.disabled = visible.length === 0;
   if (!visible.length) {
+    if (state.listing) return renderDeck({ loading: "Finding open pull requests…", log: [] });
     deck.innerHTML = `<div class="empty"><div><div class="big">🌅</div><h3>You've seen every open PR</h3>
       <p class="muted">No more pull requests in ${esc(state.repo)}. Check back later, or pick another repo.</p>
       <button class="primary" id="pick-another">Pick another repo</button></div></div>`;
@@ -377,10 +418,11 @@ function running() {
 async function startReview(pr, force = false) {
   if (state.reviews[pr] && !force) return;
   const repo = state.repo;
+  const sha = state.queue.find((p) => p.number === pr)?.headSha;
   state.reviews[pr] = { jobId: null, cursor: 0, status: "running", result: null, log: [{ kind: "step", text: "Starting a review session" }] };
   renderDeck();
   try {
-    const { jobId } = await api.startReview(repo, pr);
+    const { jobId } = await api.startReview(repo, pr, sha, force);
     if (state.repo !== repo) return;
     state.reviews[pr].jobId = jobId;
   } catch (err) {
@@ -389,8 +431,9 @@ async function startReview(pr, force = false) {
   }
 }
 function pump() {
-  // Review the top cards first; keep a few in flight.
-  for (const pr of state.queue.slice(0, PREFETCH)) {
+  // Review every card in deck order, a few at a time.
+  if (state.listing) return; // wait for the live list so reviews target current commits
+  for (const pr of state.queue) {
     if (running() >= MAX_PARALLEL_REVIEWS) break;
     if (!state.reviews[pr.number]) startReview(pr.number);
   }
@@ -494,6 +537,7 @@ function decide(dir) {
   flushPending(); // a new swipe commits the previous one immediately
   flyOut(topCard(), dir);
   state.queue.shift();
+  if (dir !== "skip") state.decided.add(pr.number);
   if (dir === "skip") {
     state.queue.push(pr);
     renderDeck();
@@ -519,6 +563,7 @@ function decide(dir) {
     clearTimeout(pending.timer);
     state.pending = null;
     toast.remove();
+    state.decided.delete(pr.number);
     state.queue.unshift(pr);
     renderDeck();
   };
@@ -539,13 +584,14 @@ async function commit(p) {
   p.toast.update(`${dir === "merge" ? "Merging" : "Closing"} #${pr.number}…`, "The agent is running it on GitHub.", { spinner: true });
   const outcome = await runAction({ repo, pr: pr.number, action: dir, method: $("#merge-method").value });
   if (outcome.ok) {
+    state.decided.add(pr.number);
     p.toast.update(dir === "merge" ? `💚 Merged #${pr.number}` : `💔 Closed #${pr.number}`, outcome.message, { kind: "ok", link: outcome.url, ttl: 6000 });
     if (dir === "merge") showMatch(pr);
   } else {
     p.toast.update(`Couldn't ${dir} #${pr.number}`, outcome.message, {
       kind: "err",
       link: `https://github.com/${repo}/pull/${pr.number}`,
-      action: state.repo === repo ? { label: "Put back", run: () => { state.queue.unshift(pr); renderDeck(); } } : null,
+      action: state.repo === repo ? { label: "Put back", run: () => { state.decided.delete(pr.number); state.queue.unshift(pr); renderDeck(); } } : null,
     });
   }
 }

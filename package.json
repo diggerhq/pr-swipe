@@ -7,7 +7,8 @@
     "typecheck": "tsc --noEmit",
     "doctor": "opencomputer doctor",
     "deploy": "opencomputer deploy",
-    "web": "node web/server.mjs"
+    "web": "node web/server.mjs",
+    "oc": "node --env-file-if-exists=.env node_modules/.bin/opencomputer"
   },
   "dependencies": {
     "@opencomputer/agent": "^0.8.0"

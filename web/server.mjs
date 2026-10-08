@@ -8,6 +8,11 @@ import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+// A project-local .env (git-ignored) may hold OPENCOMPUTER_API_KEY for a
+// different account than the global `opencomputer login`.
+try {
+  process.loadEnvFile(join(root, ".env"));
+} catch {}
 const PORT = Number(process.env.PORT ?? 8791);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const API = (process.env.OPENCOMPUTER_API_URL ?? "https://app.opencomputer.dev") + "/api/managed-agents";
@@ -43,8 +48,8 @@ async function oc(path, { method = "GET", body, idempotencyKey } = {}) {
 }
 
 // One session per job; the agent's report tool fills session.result.
-async function startJob({ kind, repo, pr, payload, text, key }) {
-  const labels = { app: "pr-swipe", kind, repo };
+async function startJob({ kind, repo, pr, payload, text, key, extraLabels }) {
+  const labels = { app: "pr-swipe", kind, repo, ...extraLabels };
   if (pr) labels.pr = String(pr);
   const created = await oc("/sessions", {
     method: "POST",
@@ -68,7 +73,7 @@ function summarizeEvent(e) {
         const cmd = String(d.input?.command ?? "").split("\n")[0].slice(0, 160);
         return { seq: e.seq, kind: "cmd", text: cmd };
       }
-      if (d.tool === "report") return { seq: e.seq, kind: "step", text: "Writing up the verdict" };
+      if (d.tool === "report") return { seq: e.seq, kind: "step", text: "Reporting back" };
       return { seq: e.seq, kind: "step", text: d.title ?? d.tool };
     }
     case "tool.failed":
@@ -176,32 +181,50 @@ const routes = [
     return { jobId: id };
   }],
 
-  // Existing reviews for a repo, newest first, so reloads reuse them.
+  // The newest usable review per PR, so the deck opens on reviews the
+  // background sweep (or an earlier visit) already finished.
   ["GET", /^\/api\/reviews$/, async (req, url) => {
     const repo = url.searchParams.get("repo") ?? "";
     if (!REPO.test(repo)) throw Object.assign(new Error("Invalid repo"), { status: 400 });
-    const q = new URLSearchParams({ project: PROJECT, "label.kind": "review", "label.repo": repo, limit: "100" });
-    const { sessions } = await oc(`/sessions?${q}`);
     const byPr = {};
-    for (const s of sessions) {
-      const pr = s.labels?.pr;
-      if (!pr || byPr[pr]) continue;
-      if (s.activity?.lastSettledTurn?.status === "failed" || s.activity?.lastSettledTurn?.status === "cancelled") continue;
-      byPr[pr] = { jobId: s.id, result: s.result?.data?.kind === "review" ? s.result.data : null };
+    let cursor = "";
+    for (let page = 0; page < 5; page++) {
+      const q = new URLSearchParams({ project: PROJECT, "label.kind": "review", "label.repo": repo, limit: "100" });
+      if (cursor) q.set("cursor", cursor);
+      const { sessions, nextCursor } = await oc(`/sessions?${q}`);
+      for (const s of sessions) {
+        const pr = s.labels?.pr;
+        if (!pr || byPr[pr]?.state === "done") continue;
+        const settled = s.activity?.lastSettledTurn;
+        const review = s.result?.data?.kind === "review" ? s.result.data : null;
+        const busy = Boolean(s.activity?.activeTurnId) || (s.activity?.queued ?? 0) > 0;
+        if (!review && !busy && settled) continue; // failed or finished without a review
+        const state = review && !busy ? "done" : "running";
+        // Prefer the newest finished review; the client re-reviews when its commit is stale.
+        if (byPr[pr] && state === "running") continue;
+        byPr[pr] = { jobId: s.id, sha: s.labels.sha ?? null, state, result: review, createdAt: s.createdAt };
+      }
+      if (!nextCursor) break;
+      cursor = nextCursor;
     }
     return { reviews: byPr };
   }],
 
+  // Keyed by head commit like the sweep's queue_reviews, so a commit is
+  // reviewed once whoever asks first. `force` starts a fresh review.
   ["POST", /^\/api\/reviews$/, async (req) => {
-    const { repo, pr } = await readJson(req);
+    const { repo, pr, sha, force } = await readJson(req);
     if (!REPO.test(repo ?? "") || !Number.isInteger(pr)) throw Object.assign(new Error("Invalid repo or pr"), { status: 400 });
+    const hasSha = typeof sha === "string" && /^[0-9a-f]{7,40}$/.test(sha);
+    const key = `pr-swipe:review:${repo}#${pr}@${hasSha ? sha : "unknown"}${force || !hasSha ? `:${Date.now()}` : ""}`;
     const id = await startJob({
       kind: "review",
       repo,
       pr,
       payload: { mode: "review", repo, pr },
       text: `Review ${repo}#${pr}`,
-      key: `pr-swipe:review:${repo}#${pr}:${Date.now()}`,
+      key,
+      extraLabels: hasSha ? { sha } : {},
     });
     return { jobId: id };
   }],
