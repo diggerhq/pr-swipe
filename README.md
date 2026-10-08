@@ -4,7 +4,7 @@
 
 PR Swipe is an open-source template for [OpenComputer](https://opencomputer.dev) Serverless Agents.
 
-- **Try the demo:** https://pr-swipe.vercel.app (sample PRs, nothing touches GitHub)
+- **Try the demo:** https://prumble.dev (sample PRs, nothing touches GitHub)
 - **Deploy your own:** [![Deploy on OpenComputer](https://img.shields.io/badge/Deploy%20on-OpenComputer-ff4f7b)](https://app.opencomputer.dev/new?repository-url=https%3A%2F%2Fgithub.com%2Fdiggerhq%2Fpr-swipe)
 
 ## What it does
@@ -29,7 +29,7 @@ Reviews are keyed to the PR's head commit, so each commit is reviewed once wheth
 ## Deploy your own
 
 1. **Deploy the template**: click the button above. OpenComputer creates a project from this repo and deploys the agent.
-2. **Connect GitHub** in the project's **Connections** tab (or with `npx opencomputer github connect`, or the app's Connect GitHub button). Select the repos to review.
+2. **Connect GitHub** in the project's **Connections** tab (or with `npx opencomputer github connect`, or the app's Connect GitHub button). Select the repos to review. Do this first: until an installation is attached, every tool call fails with "MicroVM terminated: Run lifecycle hook returned HTTP status 500".
 3. **Optional, for background reviews:** set an OpenComputer API key as the `OC_API_KEY` secret. Without it, reviews start when you open the app.
    ```bash
    printf %s "$OPENCOMPUTER_API_KEY" | npx opencomputer secrets set OC_API_KEY --value-stdin
@@ -46,7 +46,7 @@ Reviews are keyed to the PR's head commit, so each commit is reviewed once wheth
 | `OPENCOMPUTER_PROJECT` | Project id (`prj_…`) |
 | `APP_PASSWORD` | Required for live mode on a hosted deployment, because the app can merge and close PRs |
 | `OPENCOMPUTER_ENVIRONMENT` | Optional, default `default` |
-| `PR_SWIPE_AGENT` | Optional, default `pr-swipe` |
+| `PR_SWIPE_AGENT` | Optional. Read from the project when unset (template projects get a generated agent id) |
 
 Without `OPENCOMPUTER_API_KEY` and `APP_PASSWORD`, a Vercel deployment serves the landing page and the demo only, which is how the hosted demo runs.
 

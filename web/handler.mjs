@@ -22,7 +22,20 @@ const binding = readJsonFile(join(root, ".opencomputer/project.json")) ?? {};
 const API_KEY = process.env.OPENCOMPUTER_API_KEY ?? (process.env.VERCEL ? undefined : readJsonFile(join(homedir(), ".opencomputer/config.json"))?.apiKey);
 const PROJECT = process.env.OPENCOMPUTER_PROJECT ?? binding.projectId;
 const ENVIRONMENT = process.env.OPENCOMPUTER_ENVIRONMENT ?? "default";
-const AGENT = `${process.env.PR_SWIPE_AGENT ?? binding.agentId ?? "pr-swipe"}@${ENVIRONMENT}`;
+// A project created from the template gets a generated agent id
+// (e.g. "pr-swipe-1a2b3c4d"), so read it from the project unless configured.
+let agentPromise;
+const agent = () =>
+  (agentPromise ??= (async () => {
+    const id = process.env.PR_SWIPE_AGENT ?? binding.agentId;
+    if (id) return `${id}@${ENVIRONMENT}`;
+    const { project } = await oc(`/projects/${PROJECT}`);
+    const env = project.environments?.find((e) => e.name === ENVIRONMENT);
+    return `${env?.agentId ?? project.agentId}@${ENVIRONMENT}`;
+  })().catch((err) => {
+    agentPromise = undefined;
+    throw err;
+  }));
 const PASSWORD = process.env.APP_PASSWORD ?? "";
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
@@ -75,7 +88,7 @@ async function startJob({ kind, repo, pr, payload, text, key, extraLabels }) {
   const created = await oc("/sessions", {
     method: "POST",
     idempotencyKey: key,
-    body: { agentId: AGENT, labels, externalReference: `${kind}:${repo}${pr ? `#${pr}` : ""}` },
+    body: { agentId: await agent(), labels, externalReference: `${kind}:${repo}${pr ? `#${pr}` : ""}` },
   });
   const id = created.session.id;
   await oc(`/sessions/${id}/turns`, {
@@ -312,4 +325,4 @@ export async function handleApi(req, res, url) {
   return true;
 }
 
-export const agentInfo = { project: PROJECT, agent: AGENT, live };
+export const agentInfo = { project: PROJECT, agent: process.env.PR_SWIPE_AGENT ?? binding.agentId ?? "(from project)", live };
