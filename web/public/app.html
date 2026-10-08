@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PR Swipe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💘</text></svg>">
+</head>
+<body>
+  <div id="demo-banner" class="demo-banner" hidden>Demo mode · sample PRs and reviews, nothing touches GitHub · <a href="/app">exit</a></div>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="PR Swipe home">
+      <span class="brand-mark">💘</span><span>PR Swipe</span>
+    </a>
+    <a class="oc-badge" href="/" title="PR Swipe is an open-source OpenComputer template">OpenComputer template</a>
+    <button id="repo-button" class="repo-button" hidden></button>
+    <div class="topbar-right">
+      <label class="method" title="How a right swipe merges">
+        <span>Merge via</span>
+        <select id="merge-method">
+          <option value="squash">squash</option>
+          <option value="merge">merge commit</option>
+          <option value="rebase">rebase</option>
+        </select>
+      </label>
+      <span id="gh-pill" class="pill">GitHub…</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Live mode not configured (hosted demo) -->
+    <section id="screen-setup" class="screen" hidden>
+      <div class="hero-panel">
+        <div class="hero-emoji">💘</div>
+        <h1>This is the demo deployment.</h1>
+        <p class="lede">PR Swipe merges and closes real pull requests, so live mode only runs on your own deployment. <span id="setup-reason"></span></p>
+        <div class="cta-row">
+          <a class="primary" href="/app?demo">Try the demo</a>
+          <a class="ghost" id="setup-deploy" target="_blank" rel="noopener">Deploy your own on OpenComputer ↗</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Password (hosted live mode) -->
+    <section id="screen-login" class="screen" hidden>
+      <form class="hero-panel" id="login-form">
+        <div class="hero-emoji">🔐</div>
+        <h1>Owner login</h1>
+        <p class="lede">This deployment can merge and close pull requests. Enter its password.</p>
+        <input id="login-password" class="search" type="password" placeholder="Password" autocomplete="current-password" required>
+        <p><button class="primary" type="submit">Log in</button></p>
+        <p id="login-status" class="muted small"></p>
+      </form>
+    </section>
+
+    <!-- Connect GitHub -->
+    <section id="screen-connect" class="screen" hidden>
+      <div class="hero-panel">
+        <div class="hero-emoji">💘</div>
+        <h1>Find your next merge.</h1>
+        <p class="lede">Connect GitHub and pick a repo. An agent reviews every open pull request: it clones the repo, reads the diff in context, checks CI and runs the tests it can. Then you decide.</p>
+        <ul class="legend">
+          <li><span class="key merge">♥</span> Swipe right to merge</li>
+          <li><span class="key close">✕</span> Swipe left to close</li>
+          <li><span class="key comment">💬</span> Leave a comment</li>
+          <li><span class="key skip">↺</span> Not now</li>
+        </ul>
+        <button id="connect-button" class="primary">Connect GitHub</button>
+        <p id="connect-status" class="muted small"></p>
+        <p class="muted small">Connecting installs OpenComputer's GitHub App on the repos you pick. The agent runs on <a class="link" href="https://opencomputer.dev" target="_blank" rel="noopener">OpenComputer</a>; nothing runs on this machine but this page.</p>
+      </div>
+    </section>
+
+    <!-- Repo picker -->
+    <section id="screen-repos" class="screen" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Pick a repo</h2>
+          <a id="manage-repos" class="link small" target="_blank" rel="noopener">Add or remove repos on GitHub ↗</a>
+        </div>
+        <input id="repo-filter" class="search" type="search" placeholder="Filter repositories" autocomplete="off">
+        <ul id="repo-list" class="repo-list"></ul>
+        <p id="repos-status" class="muted small"></p>
+      </div>
+    </section>
+
+    <!-- Deck -->
+    <section id="screen-deck" class="screen" hidden>
+      <div class="deck-wrap">
+        <div id="deck" class="deck" aria-live="polite"></div>
+        <div class="controls">
+          <button class="ctl close" data-act="close" title="Close PR (←)" aria-label="Close PR">✕</button>
+          <button class="ctl skip" data-act="skip" title="Not now (↑)" aria-label="Not now">↺</button>
+          <button class="ctl comment" data-act="comment" title="Comment (C)" aria-label="Comment">💬</button>
+          <button class="ctl merge" data-act="merge" title="Merge PR (→)" aria-label="Merge PR">♥</button>
+        </div>
+        <p id="deck-status" class="deck-status"></p>
+        <p class="hint">Drag the card, or use ← ↑ → and C. Every swipe waits 5 seconds so you can undo. Open PRs are re-reviewed in the background every 15 minutes.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-foot">
+    <span>An open-source <a href="https://opencomputer.dev" target="_blank" rel="noopener">OpenComputer</a> template.</span>
+    <a id="foot-deploy" target="_blank" rel="noopener">Deploy your own ↗</a>
+    <a href="https://github.com/diggerhq/pr-swipe" target="_blank" rel="noopener">Source ↗</a>
+  </footer>
+
+  <div id="toasts" class="toasts"></div>
+
+  <dialog id="comment-dialog" class="dialog">
+    <form method="dialog" id="comment-form">
+      <h3 id="comment-title">Comment</h3>
+      <textarea id="comment-body" rows="8" placeholder="Say something nice (or not)…"></textarea>
+      <div id="comment-chips" class="chips"></div>
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost" formnovalidate>Cancel</button>
+        <button id="comment-send" value="send" class="primary">Send comment</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="match" class="match" hidden>
+    <div class="match-inner">
+      <div class="match-title">It's a match!</div>
+      <div id="match-sub" class="match-sub"></div>
+      <div class="match-hearts">💚 🔀 💚</div>
+      <button id="match-close" class="primary">Keep swiping</button>
+    </div>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

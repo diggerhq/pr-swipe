@@ -1,6 +1,9 @@
 import { demoApi } from "./demo.js";
 
-const DEMO = new URLSearchParams(location.search).has("demo");
+const params = new URLSearchParams(location.search);
+const DEMO = params.has("demo");
+const EMBED = params.has("embed");
+const DEPLOY_URL = "https://app.opencomputer.dev/new?repository-url=" + encodeURIComponent("https://github.com/diggerhq/pr-swipe");
 const UNDO_MS = 5000;
 const MAX_PARALLEL_REVIEWS = 3;
 
@@ -54,6 +57,27 @@ function show(name) {
 let installation = null;
 async function boot() {
   if (DEMO) $("#demo-banner").hidden = false;
+  if (EMBED) document.body.classList.add("embed");
+  for (const a of [$("#setup-deploy"), $("#foot-deploy")]) a.href = DEPLOY_URL;
+  if (EMBED && DEMO) return openRepo("acme/payments-api");
+
+  if (!DEMO) {
+    let cfg;
+    try {
+      cfg = await call("GET", "/api/config");
+    } catch (err) {
+      cfg = { live: false, reason: err.message };
+    }
+    if (!cfg.live) {
+      setPill("Demo deployment", "");
+      $("#setup-reason").textContent = cfg.reason ?? "";
+      return show("setup");
+    }
+    if (cfg.needsLogin && !cfg.authed) {
+      setPill("Locked", "bad");
+      return show("login");
+    }
+  }
   const method = $("#merge-method");
   method.value = store.get("pr-swipe:method", "squash");
   method.onchange = () => store.set("pr-swipe:method", method.value);
@@ -84,6 +108,17 @@ function setPill(text, cls) {
   pill.textContent = text;
   pill.className = `pill ${cls ?? ""}`;
 }
+
+$("#login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#login-status").textContent = "";
+  try {
+    await call("POST", "/api/login", { password: $("#login-password").value });
+    boot();
+  } catch (err) {
+    $("#login-status").textContent = err.message;
+  }
+});
 
 $("#connect-button").onclick = async () => {
   const btn = $("#connect-button");

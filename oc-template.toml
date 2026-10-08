@@ -1,0 +1,15 @@
+schema = 1
+
+[template]
+name = "PR Swipe"
+description = "Review pull requests like a dating app. An agent reviews every open PR in your connected repos (clone, full-context read, CI, tests) in the background; you swipe right to merge, left to close, or comment."
+documentation = "https://github.com/diggerhq/pr-swipe#readme"
+default_project_name = "pr-swipe"
+
+[template.first_run]
+agent = "pr-swipe"
+prompt = "What can you do?"
+
+[template.secrets.OC_API_KEY]
+description = "Optional. An OpenComputer API key the background sweep uses to start one review session per open pull request (every 15 minutes). Without it, reviews still run when you open the web app."
+required = false

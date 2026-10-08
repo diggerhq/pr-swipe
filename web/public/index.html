@@ -3,104 +3,238 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>PR Swipe</title>
+  <title>PR Swipe · an OpenComputer template</title>
+  <meta name="description" content="Review pull requests like a dating app. An agent on OpenComputer reviews every open PR; you swipe right to merge, left to close. Open-source OpenComputer template.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="app.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💘</text></svg>">
+  <style>
+    :root {
+      --bg: #0f0c15; --bg-2: #17131f; --card: #1d1828; --line: #342c45;
+      --text: #f4f0fa; --muted: #a49cb5; --soft: #dcd5e8;
+      --brand-a: #ff4f7b; --brand-b: #ff9a5a; --merge: #2fd480; --close: #ff5d6c; --comment: #5aa9ff; --skip: #f5b93d;
+      --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: radial-gradient(1100px 620px at 70% -120px, #3a1733 0%, var(--bg) 62%) no-repeat, var(--bg);
+      color: var(--text); font: 16px/1.6 Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+    nav { display: flex; align-items: center; gap: 14px; padding: 18px 0; }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; text-decoration: none; }
+    nav .spacer { flex: 1; }
+    nav .navlink { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; }
+    nav .navlink:hover { color: var(--text); }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+      font-size: 13px; font-weight: 600; padding: 6px 14px 6px 8px; border-radius: 999px;
+      background: rgba(255, 255, 255, .04); border: 1px solid var(--line); color: var(--soft);
+    }
+    .badge b { background: linear-gradient(90deg, var(--brand-a), var(--brand-b)); color: #1a0b12; border-radius: 999px; padding: 2px 9px; font-size: 11.5px; letter-spacing: .03em; }
+    .badge:hover { border-color: var(--brand-a); }
+
+    .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 40px 0 72px; }
+    h1 { font-size: clamp(44px, 6.4vw, 76px); line-height: 1; letter-spacing: -0.045em; margin: 22px 0 18px; }
+    h1 .grad { background: linear-gradient(90deg, var(--brand-a), var(--brand-b)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .lede { font-size: 19px; color: var(--soft); max-width: 560px; margin: 0; }
+    .ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+    .btn { text-decoration: none; font-weight: 700; border-radius: 999px; padding: 13px 24px; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+    .btn.primary { background: linear-gradient(90deg, var(--brand-a), var(--brand-b)); color: #1a0b12; box-shadow: 0 10px 34px -10px rgba(255, 79, 123, .7); }
+    .btn.secondary { background: var(--card); border: 1px solid var(--line); }
+    .btn.secondary:hover { border-color: var(--muted); }
+    .btn.plain { color: var(--muted); padding-left: 6px; padding-right: 6px; }
+    .btn.plain:hover { color: var(--text); }
+    .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 26px; color: var(--muted); font-size: 14px; }
+    .legend span b { font-weight: 800; margin-right: 6px; }
+
+    .phone {
+      justify-self: center; width: 360px; height: 720px; border-radius: 46px; padding: 12px;
+      background: linear-gradient(160deg, #2c2438, #141019); border: 1px solid #3d3350;
+      box-shadow: 0 50px 100px -30px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 255, 255, .03) inset;
+      position: relative;
+    }
+    .phone::before { content: ""; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 92px; height: 22px; border-radius: 12px; background: #07050a; z-index: 2; }
+    .phone iframe { width: 100%; height: 100%; border: 0; border-radius: 36px; background: var(--bg); display: block; }
+    .phone-note { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+
+    section { padding: 64px 0; border-top: 1px solid rgba(255, 255, 255, .05); }
+    .eyebrow { font-size: 12.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--brand-b); }
+    h2 { font-size: clamp(30px, 4vw, 42px); letter-spacing: -0.03em; line-height: 1.1; margin: 10px 0 14px; }
+    .sub { color: var(--soft); max-width: 680px; margin: 0 0 34px; font-size: 17px; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .step { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 22px; }
+    .step .n { font-family: var(--mono); color: var(--brand-a); font-size: 13px; }
+    .step h3 { margin: 8px 0 8px; font-size: 19px; letter-spacing: -0.01em; }
+    .step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+    .oc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .oc { background: linear-gradient(180deg, rgba(255, 255, 255, .03), transparent), var(--bg-2); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+    .oc .ico { font-size: 22px; }
+    .oc h3 { margin: 10px 0 6px; font-size: 16.5px; }
+    .oc p { margin: 0; color: var(--muted); font-size: 14.5px; }
+    .oc code { font-family: var(--mono); font-size: 12.5px; color: var(--soft); background: rgba(255, 255, 255, .06); padding: 1px 6px; border-radius: 6px; }
+    .contrast { margin-top: 18px; color: var(--muted); font-size: 15px; }
+    .contrast b { color: var(--soft); }
+
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+    pre {
+      margin: 0; background: #0b0910; border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px;
+      font-family: var(--mono); font-size: 13px; line-height: 1.75; color: #cfc7dc; overflow-x: auto;
+    }
+    pre .c { color: #6f6782; }
+    pre .k { color: var(--brand-b); }
+    pre .g { color: var(--merge); }
+
+    ol.deploy { list-style: none; counter-reset: s; padding: 0; margin: 0; display: grid; gap: 14px; }
+    ol.deploy li { counter-increment: s; position: relative; padding-left: 46px; color: var(--soft); }
+    ol.deploy li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--card); border: 1px solid var(--line); font-weight: 700; font-size: 14px; color: var(--text); }
+    ol.deploy li b { color: var(--text); }
+    ol.deploy code { font-family: var(--mono); font-size: 13px; background: rgba(255, 255, 255, .06); padding: 1px 6px; border-radius: 6px; }
+
+    .final { text-align: center; padding: 80px 0 90px; }
+    .final .ctas { justify-content: center; }
+    footer { border-top: 1px solid rgba(255, 255, 255, .05); padding: 26px 0 40px; color: var(--muted); font-size: 13.5px; display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; }
+    footer a { color: var(--muted); }
+
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; padding-top: 18px; }
+      .phone { width: min(360px, 100%); height: 680px; }
+      .steps, .oc-grid, .split { grid-template-columns: 1fr; }
+      nav .navlink.hide-sm { display: none; }
+    }
+    @media (max-width: 480px) {
+      .wrap { padding: 0 16px; }
+      .phone { height: 640px; border-radius: 40px; }
+      .phone iframe { border-radius: 30px; }
+    }
+  </style>
 </head>
 <body>
-  <div id="demo-banner" class="demo-banner" hidden>Demo mode · sample PRs and reviews, nothing touches GitHub · <a href="/">exit</a></div>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="/"><span>💘</span><span>PR Swipe</span></a>
+      <span class="spacer"></span>
+      <a class="navlink hide-sm" href="#how">How it works</a>
+      <a class="navlink hide-sm" href="#opencomputer">Why OpenComputer</a>
+      <a class="navlink" href="https://github.com/diggerhq/pr-swipe" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
 
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="PR Swipe home">
-      <span class="brand-mark">💘</span><span>PR Swipe</span>
-    </a>
-    <button id="repo-button" class="repo-button" hidden></button>
-    <div class="topbar-right">
-      <label class="method" title="How a right swipe merges">
-        <span>Merge via</span>
-        <select id="merge-method">
-          <option value="squash">squash</option>
-          <option value="merge">merge commit</option>
-          <option value="rebase">rebase</option>
-        </select>
-      </label>
-      <span id="gh-pill" class="pill">GitHub…</span>
+    <header class="hero">
+      <div>
+        <a class="badge" href="https://opencomputer.dev" target="_blank" rel="noopener"><b>TEMPLATE</b> Built on OpenComputer Serverless Agents</a>
+        <h1>Swipe right<br>to <span class="grad">merge.</span></h1>
+        <p class="lede">PR Swipe turns your pull request queue into a dating app. An agent reviews every open PR before you show up: it clones the repo, reads the change in context, checks CI and runs the tests it can. You get a verdict, the red flags, and a swipe.</p>
+        <div class="ctas">
+          <a class="btn primary" id="deploy-hero" href="https://app.opencomputer.dev/new?repository-url=https%3A%2F%2Fgithub.com%2Fdiggerhq%2Fpr-swipe" target="_blank" rel="noopener">Deploy your own on OpenComputer</a>
+          <a class="btn secondary" href="/app?demo">Try the demo</a>
+          <a class="btn plain" href="https://github.com/diggerhq/pr-swipe" target="_blank" rel="noopener">View source ↗</a>
+        </div>
+        <div class="legend">
+          <span><b style="color:var(--merge)">♥</b>right to merge</span>
+          <span><b style="color:var(--close)">✕</b>left to close</span>
+          <span><b style="color:var(--comment)">💬</b>comment</span>
+          <span><b style="color:var(--skip)">↺</b>not now</span>
+        </div>
+      </div>
+      <div>
+        <div class="phone"><iframe src="/app?demo&embed" title="PR Swipe demo" loading="lazy"></iframe></div>
+        <p class="phone-note">Live demo with sample PRs. Drag the card. Nothing touches GitHub.</p>
+      </div>
+    </header>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="eyebrow">How it works</div>
+      <h2>Reviews are ready before you open the app.</h2>
+      <p class="sub">A schedule keeps a fresh review for every open pull request, keyed to its head commit. Push again and it reviews again. Open the app and swipe.</p>
+      <div class="steps">
+        <div class="step"><div class="n">01</div><h3>Connect GitHub</h3><p>Install OpenComputer's GitHub App and pick the repos. That selection is everything the agent can reach.</p></div>
+        <div class="step"><div class="n">02</div><h3>The agent reviews</h3><p>Every 15 minutes it finds new PRs and new commits and reviews each one in its own sandbox: diff, full files, callers, CI logs, tests. Every finding is verified before it is reported.</p></div>
+        <div class="step"><div class="n">03</div><h3>You swipe</h3><p>Right merges, left closes, the comment button posts to the PR. Every swipe waits five seconds so you can undo, and branch protection still applies.</p></div>
+      </div>
     </div>
-  </header>
+  </section>
 
-  <main>
-    <!-- Connect GitHub -->
-    <section id="screen-connect" class="screen" hidden>
-      <div class="hero-panel">
-        <div class="hero-emoji">💘</div>
-        <h1>Find your next merge.</h1>
-        <p class="lede">Connect GitHub and pick a repo. An agent reviews every open pull request: it clones the repo, reads the diff in context, checks CI and runs the tests it can. Then you decide.</p>
-        <ul class="legend">
-          <li><span class="key merge">♥</span> Swipe right to merge</li>
-          <li><span class="key close">✕</span> Swipe left to close</li>
-          <li><span class="key comment">💬</span> Leave a comment</li>
-          <li><span class="key skip">↺</span> Not now</li>
-        </ul>
-        <button id="connect-button" class="primary">Connect GitHub</button>
-        <p id="connect-status" class="muted small"></p>
+  <section id="opencomputer">
+    <div class="wrap">
+      <div class="eyebrow">Why OpenComputer</div>
+      <h2>The whole backend is one agent file.</h2>
+      <p class="sub">PR Swipe is an OpenComputer template. The web app is a thin page and a small proxy; OpenComputer runs everything else.</p>
+      <div class="oc-grid">
+        <div class="oc"><div class="ico">🧠</div><h3>Managed agent loop</h3><p><code>agent.ts</code> returns instructions per mode. OpenComputer calls the model, runs tools and loops until the review is done.</p></div>
+        <div class="oc"><div class="ico">🖥️</div><h3>A computer per review</h3><p>Each review gets an isolated Linux sandbox with <code>git</code> and <code>gh</code> to clone, grep and run tests.</p></div>
+        <div class="oc"><div class="ico">🔑</div><h3>GitHub App connection</h3><p><code>githubApp()</code> mints a short-lived installation token for every command. No GitHub token in your code.</p></div>
+        <div class="oc"><div class="ico">📼</div><h3>Durable sessions</h3><p>Every list, review and swipe is a session with an event log and a typed result. That is the app's whole database.</p></div>
+        <div class="oc"><div class="ico">⏰</div><h3>Schedules</h3><p><code>defineSchedule()</code> runs the review sweep every 15 minutes. Idempotency keys make sure each commit is reviewed once.</p></div>
+        <div class="oc"><div class="ico">🛡️</div><h3>Secrets at the edge</h3><p>The sweep's API key is attached at OpenComputer's outbound edge. The agent never sees it.</p></div>
       </div>
-    </section>
+      <p class="contrast">Without it you would build <b>a job queue, sandboxed runners, GitHub App token minting, a review store, cron, and model and secret handling</b>.</p>
+    </div>
+  </section>
 
-    <!-- Repo picker -->
-    <section id="screen-repos" class="screen" hidden>
-      <div class="panel">
-        <div class="panel-head">
-          <h2>Pick a repo</h2>
-          <a id="manage-repos" class="link small" target="_blank" rel="noopener">Add or remove repos on GitHub ↗</a>
-        </div>
-        <input id="repo-filter" class="search" type="search" placeholder="Filter repositories" autocomplete="off">
-        <ul id="repo-list" class="repo-list"></ul>
-        <p id="repos-status" class="muted small"></p>
+  <section>
+    <div class="wrap split">
+      <div>
+        <div class="eyebrow">What's in the template</div>
+        <h2>Small enough to read in one sitting.</h2>
+        <p class="sub" style="margin-bottom:0">Fork it, change the review instructions, add your team's conventions, or point the swipe at a different action.</p>
       </div>
-    </section>
+<pre><span class="k">opencomputer/</span>
+  project.ts
+  <span class="k">agents/pr-swipe/</span>
+    agent.ts            <span class="c"># list · review · act · sweep</span>
+    tools/report.ts     <span class="c"># typed session result</span>
+    tools/queue-reviews.ts  <span class="c"># sweep starts reviews</span>
+    schedules/sweep.ts  <span class="c"># every 15 minutes</span>
+<span class="k">web/</span>
+  handler.mjs           <span class="c"># proxies the sessions API</span>
+  server.mjs            <span class="c"># npm run web</span>
+  public/               <span class="c"># landing + swipe app</span>
+<span class="k">api/</span>index.js            <span class="c"># same handler on Vercel</span>
+oc-template.toml        <span class="c"># one-click deploy manifest</span></pre>
+    </div>
+  </section>
 
-    <!-- Deck -->
-    <section id="screen-deck" class="screen" hidden>
-      <div class="deck-wrap">
-        <div id="deck" class="deck" aria-live="polite"></div>
-        <div class="controls">
-          <button class="ctl close" data-act="close" title="Close PR (←)" aria-label="Close PR">✕</button>
-          <button class="ctl skip" data-act="skip" title="Not now (↑)" aria-label="Not now">↺</button>
-          <button class="ctl comment" data-act="comment" title="Comment (C)" aria-label="Comment">💬</button>
-          <button class="ctl merge" data-act="merge" title="Merge PR (→)" aria-label="Merge PR">♥</button>
-        </div>
-        <p id="deck-status" class="deck-status"></p>
-        <p class="hint">Drag the card, or use ← ↑ → and C. Every swipe waits 5 seconds so you can undo. Open PRs are re-reviewed in the background every 15 minutes.</p>
+  <section id="deploy">
+    <div class="wrap split">
+      <div>
+        <div class="eyebrow">Deploy your own</div>
+        <h2>Five minutes to your first swipe.</h2>
+        <p class="sub">The hosted page you are on runs the demo only. Live mode merges and closes real PRs, so it runs on your deployment, with your GitHub App and your password.</p>
+        <div class="ctas" style="margin-top:0"><a class="btn primary" id="deploy-steps" href="https://app.opencomputer.dev/new?repository-url=https%3A%2F%2Fgithub.com%2Fdiggerhq%2Fpr-swipe" target="_blank" rel="noopener">Deploy on OpenComputer</a></div>
       </div>
-    </section>
-  </main>
+      <ol class="deploy">
+        <li><b>Deploy the template.</b> OpenComputer creates a project from this repo and deploys the agent.</li>
+        <li><b>Connect GitHub</b> in the project's Connections tab, or from the app. Pick the repos to review.</li>
+        <li><b>Set <code>OC_API_KEY</code></b> as a project secret so the background sweep can start reviews.</li>
+        <li><b>Run the app</b>: <code>npm run web</code> locally, or deploy <code>web/</code> to Vercel with <code>OPENCOMPUTER_API_KEY</code>, <code>OPENCOMPUTER_PROJECT</code> and <code>APP_PASSWORD</code>.</li>
+        <li><b>Swipe.</b></li>
+      </ol>
+    </div>
+  </section>
 
-  <div id="toasts" class="toasts"></div>
-
-  <dialog id="comment-dialog" class="dialog">
-    <form method="dialog" id="comment-form">
-      <h3 id="comment-title">Comment</h3>
-      <textarea id="comment-body" rows="8" placeholder="Say something nice (or not)…"></textarea>
-      <div id="comment-chips" class="chips"></div>
-      <div class="dialog-actions">
-        <button value="cancel" class="ghost" formnovalidate>Cancel</button>
-        <button id="comment-send" value="send" class="primary">Send comment</button>
-      </div>
-    </form>
-  </dialog>
-
-  <div id="match" class="match" hidden>
-    <div class="match-inner">
-      <div class="match-title">It's a match!</div>
-      <div id="match-sub" class="match-sub"></div>
-      <div class="match-hearts">💚 🔀 💚</div>
-      <button id="match-close" class="primary">Keep swiping</button>
+  <div class="wrap final">
+    <h2>Your PRs are waiting to meet you.</h2>
+    <div class="ctas">
+      <a class="btn primary" id="deploy-final" href="https://app.opencomputer.dev/new?repository-url=https%3A%2F%2Fgithub.com%2Fdiggerhq%2Fpr-swipe" target="_blank" rel="noopener">Deploy your own on OpenComputer</a>
+      <a class="btn secondary" href="/app?demo">Try the demo</a>
     </div>
   </div>
 
-  <script src="app.js" type="module"></script>
+  <div class="wrap">
+    <footer>
+      <span>PR Swipe is an open-source template for <a href="https://opencomputer.dev" target="_blank" rel="noopener">OpenComputer</a> Serverless Agents. MIT licensed.</span>
+      <span><a href="https://github.com/diggerhq/pr-swipe" target="_blank" rel="noopener">GitHub</a> · <a href="/app">Open the app</a></span>
+    </footer>
+  </div>
+
 </body>
 </html>
