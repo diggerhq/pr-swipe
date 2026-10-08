@@ -1,0 +1,23 @@
+{
+  "name": "pr-swipe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "doctor": "opencomputer doctor",
+    "deploy": "opencomputer deploy",
+    "web": "node web/server.mjs"
+  },
+  "dependencies": {
+    "@opencomputer/agent": "^0.8.0"
+  },
+  "devDependencies": {
+    "@opencomputer/cli": "0.7.18",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
