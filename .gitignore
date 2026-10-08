@@ -3,3 +3,5 @@ node_modules
 opencomputer/agents/*/.opencomputer/
 .env
 opencomputer/.env.local
+.vercel
+.env*

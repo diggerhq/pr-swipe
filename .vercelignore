@@ -1,0 +1,6 @@
+.env
+.env.*
+.opencomputer
+opencomputer/.env.local
+node_modules
+.git
